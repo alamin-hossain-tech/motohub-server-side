@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
@@ -18,6 +18,21 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+// JWT
+// function verifyJWT(req, res, next) {
+//   const authHeader = req.headers.authorization;
+//   if (!authHeader) {
+//     return res.status(401).send({ message: "unauthorized access" });
+//   }
+//   const token = authHeader.split(" ")[1];
+//   jwt.verify(token, process.env.JWTOKEN, function (err, decoded) {
+//     if (err) {
+//       return res.status(401).send({ message: "unauthorized access" });
+//     }
+//     req.decoded = decoded;
+//     next();
+//   });
+// }
 
 //mongodb try function start---
 async function run() {
@@ -38,10 +53,29 @@ async function run() {
       res.send(products);
     });
 
+    app.get("/jwt", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user) {
+        const token = jwt.sign({ email }, process.env.JWTOKEN, {
+          expiresIn: "1h",
+        });
+        res.send({ accessToken: token });
+      } else {
+        res.send({ accessToken: "" });
+      }
+      // res.status(403).send({ accessToken: "" });
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
-      const result = await usersCollection.insertOne(user);
-      res.send(result);
+      const query = { email: user.email };
+      const isUserAvailable = await usersCollection.findOne(query);
+      if (!isUserAvailable) {
+        const result = await usersCollection.insertOne(user);
+        res.send(result);
+      }
     });
   } finally {
   }
