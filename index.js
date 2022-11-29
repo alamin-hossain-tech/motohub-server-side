@@ -154,30 +154,25 @@ async function run() {
       );
       res.send(result);
     });
-    // app.put("/editreview/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const filter = { _id: ObjectId(id) };
-    //   const review = req.body;
-    //   const option = { upsert: true };
-    //   const updatedreview = {
-    //     $set: {
-    //       review: review.review,
-    //       rating: parseInt(review.rating),
-    //     },
-    //   };
-    //   const result = await reviewsCollection.updateOne(
-    //     filter,
-    //     updatedreview,
-    //     option
-    //   );
-    //   res.send(result);
-    // });
 
     app.get("/users/role/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
       res.send(result);
+    });
+
+    app.get("/users/role/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
+    app.get("/users/verify/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ isVerify: user?.verify === "true" });
     });
   } finally {
   }
