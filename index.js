@@ -79,6 +79,24 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/products", async (req, res) => {
+      const query = {
+        advertise: "true",
+      };
+      const cursor = productCollection.find(query);
+      const products = await cursor.toArray();
+      res.send(products);
+    });
+    app.get("/products/category/:id", async (req, res) => {
+      const categoryId = req.params.id;
+      const query = {
+        category: categoryId,
+      };
+      const cursor = productCollection.find(query);
+      const products = await cursor.toArray();
+      res.send(products);
+    });
+
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
