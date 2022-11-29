@@ -12,7 +12,6 @@ app.use(express.json());
 
 //mongodbapi
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.rfyyfuu.mongodb.net/?retryWrites=true&w=majority`;
-console.log(uri);
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -42,15 +41,42 @@ async function run() {
 
     app.post("/add-product", async (req, res) => {
       const product = req.body;
+      console.log(product);
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
 
-    app.get("/products", async (req, res) => {
-      const query = {};
+    app.get("/products/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = {
+        seller_email: email,
+      };
       const cursor = productCollection.find(query);
       const products = await cursor.toArray();
       res.send(products);
+    });
+    app.post("/product/delete/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await productCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.put("/product/edit/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const option = { upsert: true };
+      const updatedUser = {
+        $set: {
+          advertise: "true",
+        },
+      };
+      const result = await productCollection.updateOne(
+        filter,
+        updatedUser,
+        option
+      );
+      res.send(result);
     });
 
     app.get("/jwt", async (req, res) => {
@@ -84,12 +110,56 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    app.post("/users/delete/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const body = req.body;
+      console.log(body);
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.put("/users/edit/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const verify = req.headers.verify;
+      const option = { upsert: true };
+      const updatedUser = {
+        $set: {
+          verify: verify,
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updatedUser,
+        option
+      );
+      res.send(result);
+    });
+    // app.put("/editreview/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const filter = { _id: ObjectId(id) };
+    //   const review = req.body;
+    //   const option = { upsert: true };
+    //   const updatedreview = {
+    //     $set: {
+    //       review: review.review,
+    //       rating: parseInt(review.rating),
+    //     },
+    //   };
+    //   const result = await reviewsCollection.updateOne(
+    //     filter,
+    //     updatedreview,
+    //     option
+    //   );
+    //   res.send(result);
+    // });
 
     app.get("/users/role/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      res.send(result.role);
+      res.send(result);
     });
   } finally {
   }
