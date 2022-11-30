@@ -20,7 +20,7 @@ const client = new MongoClient(uri, {
 // JWT
 function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
-  // console.log(authHeader);
+
   if (!authHeader) {
     return res.status(401).send({ message: "unauthorized access" });
   }
@@ -39,11 +39,12 @@ async function run() {
   try {
     const productCollection = client.db("MotoHub").collection("products");
     const usersCollection = client.db("MotoHub").collection("users");
+    const orderCollection = client.db("MotoHub").collection("orders");
 
     // Add Product
     app.post("/add-product", async (req, res) => {
       const product = req.body;
-      console.log(product);
+
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
@@ -107,6 +108,23 @@ async function run() {
       res.send(products);
     });
 
+    // order create
+    app.post("/order", async (req, res) => {
+      const order = req.body;
+      const query = {
+        product_id: order.product_id,
+        customer_email: order.customer_email,
+      };
+      const isOrdered = await orderCollection.find(query).toArray();
+
+      if (isOrdered.length < 1) {
+        const result = await orderCollection.insertOne(order);
+        res.send(result);
+      } else {
+        res.status(401).send({ error: "Already ordered" });
+      }
+    });
+
     // get jwt token
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
@@ -146,7 +164,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const body = req.body;
-      console.log(body);
+
       const result = await usersCollection.deleteOne(query);
       res.send(result);
     });
