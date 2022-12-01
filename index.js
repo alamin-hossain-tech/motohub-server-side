@@ -70,19 +70,39 @@ async function run() {
 
     // update product advertise satatus by id
     app.put("/product/edit/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: ObjectId(id) };
+      const productId = req.params.id;
+      const orderId = req.headers.id;
+      const update = await req.body;
+
+      const productFilter = { _id: ObjectId(productId) };
+      const orderFilter = { _id: ObjectId(orderId) };
+      console.log(orderId);
       const option = { upsert: true };
-      const updatedUser = {
+      const updateProduct = {
         $set: {
-          advertise: "true",
+          advertise: update.advertise,
+          status: update.status,
         },
       };
+      const updateOrder = {
+        $set: {
+          paid: true,
+        },
+      };
+
       const result = await productCollection.updateOne(
-        filter,
-        updatedUser,
+        productFilter,
+        updateProduct,
         option
       );
+      if (orderId) {
+        const orderUpdate = await orderCollection.updateOne(
+          orderFilter,
+          updateOrder,
+          option
+        );
+      }
+
       res.send(result);
     });
 
@@ -102,6 +122,7 @@ async function run() {
       const categoryId = req.params.id;
       const query = {
         category: categoryId,
+        status: "Available",
       };
       const cursor = productCollection.find(query);
       const products = await cursor.toArray();
@@ -123,6 +144,18 @@ async function run() {
       } else {
         res.status(401).send({ error: "Already ordered" });
       }
+    });
+
+    // get order by email or id
+    app.get("/order", async (req, res) => {
+      const query = {
+        $or: [
+          { customer_email: req.query.email },
+          { _id: ObjectId(req.query.id) },
+        ],
+      };
+      const result = await orderCollection.find(query).toArray();
+      res.send(result);
     });
 
     // get jwt token
