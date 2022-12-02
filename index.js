@@ -189,7 +189,7 @@ async function run() {
     });
 
     // get wishlist by email or product_id
-    app.get("/wishlist", verifyJWT, async (req, res) => {
+    app.get("/wishlist", async (req, res) => {
       const email = req.query.email;
       const id = req.query.id;
 
