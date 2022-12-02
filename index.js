@@ -5,13 +5,10 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 4000;
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // middleware
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-  })
-);
+app.use(cors());
 app.use(express.json());
 
 //mongodbapi
@@ -45,9 +42,10 @@ async function run() {
     const usersCollection = client.db("MotoHub").collection("users");
     const orderCollection = client.db("MotoHub").collection("orders");
     const wishlistCollection = client.db("MotoHub").collection("wishlist");
+    const paymentCollection = client.db("MotoHub").collection("payments");
 
     // Add Product
-    app.post("/add-product", async (req, res) => {
+    app.post("/add-product", verifyJWT, async (req, res) => {
       const product = req.body;
 
       const result = await productCollection.insertOne(product);
@@ -55,7 +53,7 @@ async function run() {
     });
 
     // get product by email
-    app.get("/products/:email", async (req, res) => {
+    app.get("/products/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = {
         seller_email: email,
@@ -66,7 +64,7 @@ async function run() {
     });
 
     // delete product by id
-    app.post("/product/delete/:id", async (req, res) => {
+    app.post("/product/delete/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await productCollection.deleteOne(query);
@@ -74,14 +72,13 @@ async function run() {
     });
 
     // update product advertise satatus by id
-    app.put("/product/edit/:id", async (req, res) => {
+    app.put("/product/edit/:id", verifyJWT, async (req, res) => {
       const productId = req.params.id;
       const orderId = req.headers.id;
       const update = await req.body;
 
       const productFilter = { _id: ObjectId(productId) };
       const orderFilter = { _id: ObjectId(orderId) };
-      console.log(orderId);
       const option = { upsert: true };
       const updateProduct = {
         $set: {
@@ -113,7 +110,7 @@ async function run() {
 
     // get advertise product array
 
-    app.get("/products", async (req, res) => {
+    app.get("/products", verifyJWT, async (req, res) => {
       const query = {
         advertise: "true",
       };
@@ -135,7 +132,7 @@ async function run() {
     });
 
     // order create
-    app.post("/order", async (req, res) => {
+    app.post("/order", verifyJWT, async (req, res) => {
       const order = req.body;
       const query = {
         product_id: order.product_id,
@@ -152,7 +149,7 @@ async function run() {
     });
 
     // get order by email or id
-    app.get("/order", async (req, res) => {
+    app.get("/order", verifyJWT, async (req, res) => {
       const query = {
         $or: [
           { customer_email: req.query.email },
@@ -165,7 +162,7 @@ async function run() {
 
     // save wishlist
 
-    app.post("/wishlist", async (req, res) => {
+    app.post("/wishlist", verifyJWT, async (req, res) => {
       const wishlist = req.body;
       const query = {
         product_id: wishlist.product_id,
@@ -182,7 +179,7 @@ async function run() {
     });
 
     // Undo wishlist by product id
-    app.post("/wishlist/delete/:id", async (req, res) => {
+    app.post("/wishlist/delete/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = {
         _id: ObjectId(id),
@@ -192,20 +189,52 @@ async function run() {
     });
 
     // get wishlist by email or product_id
-    app.get("/wishlist", async (req, res) => {
+    app.get("/wishlist", verifyJWT, async (req, res) => {
       const email = req.query.email;
       const id = req.query.id;
 
       const query = {
         $or: [{ customer_email: email }, { product_id: id }],
       };
-      // const query = {
-      //   customer_email: email,
-      // };
+
       const result = await wishlistCollection.find(query).toArray();
       res.send(result);
     });
 
+    // payment
+
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      const order = req.body;
+
+      const price = +order.price;
+
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency: "usd",
+        amount: amount,
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // save payment to db
+    app.post("/payment", verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const result = await paymentCollection.insertOne(payment);
+      const id = payment.order_id;
+      const filter = { _id: ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+
+      res.send(result);
+    });
     // get jwt token
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
@@ -213,7 +242,7 @@ async function run() {
       const user = await usersCollection.findOne(query);
       if (user) {
         const token = jwt.sign({ email }, process.env.JWTOKEN, {
-          expiresIn: "1h",
+          expiresIn: "1 day",
         });
         res.send({ accessToken: token });
       } else {
@@ -222,7 +251,7 @@ async function run() {
     });
 
     // create user in db
-    app.post("/users", async (req, res) => {
+    app.post("/users", verifyJWT, async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
       const isUserAvailable = await usersCollection.findOne(query);
@@ -233,7 +262,7 @@ async function run() {
     });
 
     // get users from db according to role
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyJWT, async (req, res) => {
       const role = req.query.role;
       const query = { role: role };
       const result = await usersCollection.find(query).toArray();
@@ -241,7 +270,7 @@ async function run() {
     });
 
     // user delete by id
-    app.post("/users/delete/:id", async (req, res) => {
+    app.post("/users/delete/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const body = req.body;
@@ -251,7 +280,7 @@ async function run() {
     });
 
     // make seller verify by id
-    app.put("/users/edit/:id", async (req, res) => {
+    app.put("/users/edit/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const verify = req.headers.verify;
@@ -270,7 +299,7 @@ async function run() {
     });
 
     // get users  role by email
-    app.get("/users/role/:email", async (req, res) => {
+    app.get("/users/role/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
@@ -278,7 +307,7 @@ async function run() {
     });
 
     // is user verified seller api
-    app.get("/users/verify/:email", async (req, res) => {
+    app.get("/users/verify/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
