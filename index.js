@@ -110,7 +110,7 @@ async function run() {
 
     // get advertise product array
 
-    app.get("/products", verifyJWT, async (req, res) => {
+    app.get("/products", async (req, res) => {
       const query = {
         advertise: "true",
       };
@@ -262,7 +262,7 @@ async function run() {
     });
 
     // get users from db according to role
-    app.get("/users", verifyJWT, async (req, res) => {
+    app.get("/users", async (req, res) => {
       const role = req.query.role;
       const query = { role: role };
       const result = await usersCollection.find(query).toArray();
@@ -299,7 +299,7 @@ async function run() {
     });
 
     // get users  role by email
-    app.get("/users/role/:email", verifyJWT, async (req, res) => {
+    app.get("/users/role/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
@@ -307,7 +307,7 @@ async function run() {
     });
 
     // is user verified seller api
-    app.get("/users/verify/:email", verifyJWT, async (req, res) => {
+    app.get("/users/verify/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
