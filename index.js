@@ -40,6 +40,7 @@ async function run() {
     const productCollection = client.db("MotoHub").collection("products");
     const usersCollection = client.db("MotoHub").collection("users");
     const orderCollection = client.db("MotoHub").collection("orders");
+    const wishlistCollection = client.db("MotoHub").collection("wishlist");
 
     // Add Product
     app.post("/add-product", async (req, res) => {
@@ -155,6 +156,49 @@ async function run() {
         ],
       };
       const result = await orderCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // save wishlist
+
+    app.post("/wishlist", async (req, res) => {
+      const wishlist = req.body;
+      const query = {
+        product_id: wishlist.product_id,
+        customer_email: wishlist.customer_email,
+      };
+      const isAded = await wishlistCollection.find(query).toArray();
+
+      if (isAded.length < 1) {
+        const result = await wishlistCollection.insertOne(wishlist);
+        res.send(result);
+      } else {
+        res.status(401).send({ error: "Already Aded" });
+      }
+    });
+
+    // Undo wishlist by product id
+    app.post("/wishlist/delete/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = {
+        _id: ObjectId(id),
+      };
+      const result = await wishlistCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // get wishlist by email or product_id
+    app.get("/wishlist", async (req, res) => {
+      const email = req.query.email;
+      const id = req.query.id;
+
+      const query = {
+        $or: [{ customer_email: email }, { product_id: id }],
+      };
+      // const query = {
+      //   customer_email: email,
+      // };
+      const result = await wishlistCollection.find(query).toArray();
       res.send(result);
     });
 
